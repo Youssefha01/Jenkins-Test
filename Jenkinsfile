@@ -1,27 +1,24 @@
 node {
     def mvnHome = tool 'maven-3.5.2'
-    def dockerImage
     def dockerImageTag = "devopsexample${env.BUILD_NUMBER}"
     
     stage('Clone Repo') {
-      git 'https://github.com/Youssefha01/Jenkins-Test.git'
+        checkout scm
     }    
-  
-    stage('Build Project') {
-      sh "'${mvnHome}/bin/mvn' -B -DskipTests clean package"
-    }
     
-    stage('Initialize Docker'){         
-	  def dockerHome = tool 'MyDocker'         
-	  env.PATH = "${dockerHome}/bin:${env.PATH}"     
+    stage('Build Project') {
+        bat "\"${mvnHome}\\bin\\mvn\" -B -DskipTests clean package"
     }
     
     stage('Build Docker Image') {
-      sh "docker -H tcp://192.168.8.100:2375 build -t devopsexample:${env.BUILD_NUMBER} ."
+        withDockerServer([uri: 'tcp://192.168.8.100:2375']) {
+            docker.build("devopsexample:${env.BUILD_NUMBER}")
+        }
     }
     
-    stage('Deploy Docker Image'){
-      	echo "Docker Image Tag Name: ${dockerImageTag}"
-	sh "docker -H tcp://192.168.8.100:2375 run --name devopsexample -d -p 2222:2222 devopsexample:${env.BUILD_NUMBER}"
+    stage('Deploy Docker Image') {
+        withDockerServer([uri: 'tcp://192.168.8.100:2375']) {
+            docker.image("devopsexample:${env.BUILD_NUMBER}").run("-p 2222:2222", "--name devopsexample -d")
+        }
     }
 }
